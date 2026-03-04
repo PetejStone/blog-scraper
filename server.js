@@ -44,16 +44,11 @@ async function fetchPage(url) {
 function isRelevantUrl(url, rootUrl) {
   const path = url.replace(rootUrl, "").replace(/\/$/, "");
   const segments = path.split("/").filter(Boolean);
-  // Allow: /          (root blog index)
-  // Allow: /2024      (year index)
-  // Allow: /2024/Jan  (month index)
-  // Allow: /2024/Jan/slug (actual post)
-  // Block anything else (nav, footer, tag, category, external, etc.)
   if (segments.length === 0) return true;
-  if (segments.length === 1) return /^\d{4}$/.test(segments[0]); // year only
-  if (segments.length === 2) return /^\d{4}$/.test(segments[0]); // year/month
-  if (segments.length === 3) return /^\d{4}$/.test(segments[0]); // year/month/slug
-  return false; // too deep
+  if (segments.length === 1) return /^\d{4}$/.test(segments[0]);
+  if (segments.length === 2) return /^\d{4}$/.test(segments[0]);
+  if (segments.length === 3) return /^\d{4}$/.test(segments[0]);
+  return false;
 }
 
 // --- Helper: extract all same-base links from a page ---
@@ -128,6 +123,17 @@ function extractPost(html, url, fields) {
     const body =
       $("article").text() || $("main").text() || $("body").text() || "";
     post["Word Count"] = body.trim().split(/\s+/).filter(Boolean).length;
+  }
+
+  if (fields.content) {
+    const contentEl =
+      $("article").length ? $("article") :
+      $("[class*='post-body']").length ? $("[class*='post-body']") :
+      $("[class*='post-content']").length ? $("[class*='post-content']") :
+      $("[class*='blog-content']").length ? $("[class*='blog-content']") :
+      $("[class*='entry-content']").length ? $("[class*='entry-content']") :
+      $("main").length ? $("main") : null;
+    post["Content"] = contentEl ? contentEl.text().replace(/\s+/g, " ").trim() : "";
   }
 
   if (fields.ogImage)
