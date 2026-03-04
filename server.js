@@ -10,16 +10,32 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static("public"));
 
+const defaultHeaders = {
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (HTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "Accept-Language": "en-US,en;q=0.5",
+};
+
+// --- Proxy fetch endpoint ---
+app.get("/fetch", async (req, res) => {
+  const { url } = req.query;
+  if (!url) return res.status(400).send("Missing url param");
+  try {
+    const response = await axios.get(url, {
+      timeout: 10000,
+      headers: defaultHeaders,
+    });
+    res.send(response.data);
+  } catch (e) {
+    res.status(500).send(e.message);
+  }
+});
+
 // --- Helper: fetch a page ---
 async function fetchPage(url) {
   const res = await axios.get(url, {
     timeout: 10000,
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (HTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      "Accept-Language": "en-US,en;q=0.5",
-    },
+    headers: defaultHeaders,
   });
   return res.data;
 }
@@ -121,7 +137,6 @@ app.post("/scrape", async (req, res) => {
 
   if (!rootUrl) return res.status(400).json({ error: "rootUrl is required" });
 
-  // Use SSE to stream progress back to the client
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
@@ -151,13 +166,11 @@ app.post("/scrape", async (req, res) => {
         continue;
       }
 
-      // Discover child links
       const links = extractLinks(html, current, rootUrl);
       for (const link of links) {
         if (!visited.has(link) && !queue.includes(link)) queue.push(link);
       }
 
-      // Extract post if it looks like one
       if (current !== rootUrl && looksLikePost(current)) {
         const post = extractPost(html, current, fields);
         posts.push(post);
