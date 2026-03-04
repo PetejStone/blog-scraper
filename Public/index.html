@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blog Scraper → CSV</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 40px 20px; }
+  h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: 6px; background: linear-gradient(135deg, #6ee7f7, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .subtitle { color: #94a3b8; font-size: 0.85rem; margin-bottom: 30px; }
+  .card { background: #1e2130; border: 1px solid #2d3148; border-radius: 14px; padding: 28px; width: 100%; max-width: 700px; }
+  label { font-size: 0.8rem; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 8px; }
+  .input-row { display: flex; gap: 10px; margin-bottom: 16px; }
+  input[type="text"], input[type="number"] {
+    background: #0f1117; border: 1px solid #2d3148; border-radius: 8px;
+    color: #e2e8f0; padding: 10px 14px; font-size: 0.95rem; outline: none; transition: border 0.2s;
+  }
+  input[type="text"]:focus, input[type="number"]:focus { border-color: #6ee7f7; }
+  input[type="text"].main { flex: 1; }
+  input[type="number"] { width: 80px; }
+  .options { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+  .opt { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: #94a3b8; cursor: pointer; }
+  .opt input { accent-color: #a78bfa; cursor: pointer; }
+  button#scrapeBtn {
+    width: 100%; padding: 12px; border-radius: 8px; border: none;
+    background: linear-gradient(135deg, #6ee7f7, #a78bfa);
+    color: #0f1117; font-weight: 700; font-size: 1rem; cursor: pointer; transition: opacity 0.2s;
+  }
+  button#scrapeBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+  #status { margin-top: 18px; font-size: 0.85rem; color: #94a3b8; min-height: 20px; }
+  #progress-bar-wrap { background: #0f1117; border-radius: 6px; height: 6px; margin-top: 10px; overflow: hidden; display: none; }
+  #progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #6ee7f7, #a78bfa); transition: width 0.3s; }
+  #log { margin-top: 14px; background: #0f1117; border-radius: 8px; padding: 12px; font-size: 0.75rem; color: #64748b; max-height: 160px; overflow-y: auto; display: none; font-family: monospace; }
+  #results { margin-top: 20px; display: none; }
+  #results h2 { font-size: 1rem; color: #a78bfa; margin-bottom: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+  th { background: #2d3148; color: #94a3b8; padding: 8px 10px; text-align: left; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #2d3148; color: #cbd5e1; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  tr:hover td { background: #1a1f32; }
+  #dl-btn {
+    margin-top: 14px; padding: 10px 22px; border-radius: 8px; border: 1px solid #a78bfa;
+    background: transparent; color: #a78bfa; font-weight: 600; cursor: pointer; font-size: 0.9rem; transition: background 0.2s;
+  }
+  #dl-btn:hover { background: #a78bfa22; }
+  .api-note { background: #1a2744; border: 1px solid #2d4a8a; border-radius: 8px; padding: 12px 14px; font-size: 0.8rem; color: #93c5fd; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+
+<h1>Blog Scraper → CSV</h1>
+<p class="subtitle">Crawl a blog and export all posts to a spreadsheet</p>
+
+<div class="card">
+  <div class="api-note">
+    🔗 Fetching via your Render proxy. Set your Render URL below before scraping.
+  </div>
+
+  <label>Render API URL</label>
+  <div class="input-row">
+    <input type="text" class="main" id="apiUrl" placeholder="https://your-app.onrender.com" />
+  </div>
+
+  <label>Blog Root URL</label>
+  <div class="input-row">
+    <input type="text" class="main" id="urlInput" placeholder="https://example.com/blog/" />
+  </div>
+
+  <label>Options</label>
+  <div class="options" style="margin-bottom:12px; align-items:center;">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <label style="margin:0;text-transform:none;letter-spacing:0;font-size:0.85rem;color:#94a3b8;">Max pages:</label>
+      <input type="number" id="maxPages" value="50" min="1" max="500" />
+    </div>
+  </div>
+
+  <label>Extract Fields</label>
+  <div class="options">
+    <label class="opt"><input type="checkbox" checked disabled> URL</label>
+    <label class="opt"><input type="checkbox" id="fTitle" checked> Title</label>
+    <label class="opt"><input type="checkbox" id="fMeta" checked> Meta Description</label>
+    <label class="opt"><input type="checkbox" id="fDate" checked> Publish Date</label>
+    <label class="opt"><input type="checkbox" id="fAuthor" checked> Author</label>
+    <label class="opt"><input type="checkbox" id="fH1" checked> H1</label>
+    <label class="opt"><input type="checkbox" id="fWordCount" checked> Word Count</label>
+    <label class="opt"><input type="checkbox" id="fOgImage"> OG Image URL</label>
+    <label class="opt"><input type="checkbox" id="fCanonical"> Canonical URL</label>
+  </div>
+
+  <button id="scrapeBtn" onclick="startScrape()">🔍 Start Crawl</button>
+  <div id="status">Enter your Render URL and a blog URL above, then hit Start.</div>
+  <div id="progress-bar-wrap"><div id="progress-bar"></div></div>
+  <div id="log"></div>
+</div>
+
+<div class="card" id="results" style="margin-top:20px;">
+  <h2 id="results-title">Results</h2>
+  <div style="overflow-x:auto;">
+    <table>
+      <thead id="tHead"></thead>
+      <tbody id="tBody"></tbody>
+    </table>
+  </div>
+  <button id="dl-btn" onclick="downloadCSV()">⬇️ Download CSV</button>
+</div>
+
+<script>
+  let allPosts = [];
+  let headers = [];
+
+  function log(msg) {
+    const el = document.getElementById("log");
+    el.style.display = "block";
+    el.innerHTML += msg + "<br>";
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function setStatus(msg) { document.getElementById("status").textContent = msg; }
+
+  function setProgress(pct) {
+    document.getElementById("progress-bar-wrap").style.display = "block";
+    document.getElementById("progress-bar").style.width = Math.min(100, pct) + "%";
+  }
+
+  async function startScrape() {
+    const apiUrl = document.getElementById("apiUrl").value.trim().replace(/\/$/, "");
+    const rootUrl = document.getElementById("urlInput").value.trim();
+    const maxPages = parseInt(document.getElementById("maxPages").value) || 50;
+
+    if (!apiUrl) { setStatus("Please enter your Render API URL."); return; }
+    if (!rootUrl) { setStatus("Please enter a blog URL."); return; }
+
+    const fields = {
+      title: document.getElementById("fTitle").checked,
+      metaDesc: document.getElementById("fMeta").checked,
+      date: document.getElementById("fDate").checked,
+      author: document.getElementById("fAuthor").checked,
+      h1: document.getElementById("fH1").checked,
+      wordCount: document.getElementById("fWordCount").checked,
+      ogImage: document.getElementById("fOgImage").checked,
+      canonical: document.getElementById("fCanonical").checked,
+    };
+
+    allPosts = [];
+    document.getElementById("scrapeBtn").disabled = true;
+    document.getElementById("results").style.display = "none";
+    document.getElementById("log").innerHTML = "";
+    setProgress(0);
+    setStatus("Connecting to Render...");
+
+    try {
+      const response = await fetch(`${apiUrl}/scrape`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rootUrl, maxPages, fields }),
+      });
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop();
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const event = JSON.parse(line.slice(6));
+
+          if (event.type === "log") log(event.message);
+          if (event.type === "progress") {
+            setStatus(`Crawling... ${event.crawled} pages | ${event.found} posts found | Queue: ${event.queued}`);
+            setProgress((event.crawled / maxPages) * 100);
+          }
+          if (event.type === "done") {
+            allPosts = event.posts;
+            setStatus(`✅ Done! Found ${allPosts.length} posts.`);
+            setProgress(100);
+            renderTable();
+          }
+          if (event.type === "error") {
+            setStatus(`❌ Error: ${event.message}`);
+          }
+        }
+      }
+    } catch (e) {
+      setStatus(`❌ Failed to connect to Render: ${e.message}`);
+    }
+
+    document.getElementById("scrapeBtn").disabled = false;
+  }
+
+  function renderTable() {
+    if (!allPosts.length) return;
+    headers = Object.keys(allPosts[0]);
+    document.getElementById("tHead").innerHTML = "<tr>" + headers.map(h => `<th>${h}</th>`).join("") + "</tr>";
+    document.getElementById("tBody").innerHTML = allPosts.map(p =>
+      "<tr>" + headers.map(h => `<td title="${(p[h]||"").toString().replace(/"/g,"&quot;")}">${p[h] || ""}</td>`).join("") + "</tr>"
+    ).join("");
+    document.getElementById("results-title").textContent = `Results — ${allPosts.length} posts found`;
+    document.getElementById("results").style.display = "block";
+  }
+
+  function downloadCSV() {
+    if (!allPosts.length) return;
+    const escape = v => '"' + String(v ?? "").replace(/"/g, '""') + '"';
+    const rows = [headers.map(escape).join(",")];
+    for (const p of allPosts) rows.push(headers.map(h => escape(p[h] ?? "")).join(","));
+    const blob = new Blob([rows.join("\n")], { type: "text/csv" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "blog_posts.csv";
+    a.click();
+  }
+</script>
+</body>
+</html>
