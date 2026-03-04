@@ -43,7 +43,6 @@
     background: transparent; color: #a78bfa; font-weight: 600; cursor: pointer; font-size: 0.9rem; transition: background 0.2s;
   }
   #dl-btn:hover { background: #a78bfa22; }
-  .api-note { background: #1a2744; border: 1px solid #2d4a8a; border-radius: 8px; padding: 12px 14px; font-size: 0.8rem; color: #93c5fd; margin-bottom: 16px; }
 </style>
 </head>
 <body>
@@ -52,15 +51,6 @@
 <p class="subtitle">Crawl a blog and export all posts to a spreadsheet</p>
 
 <div class="card">
-  <div class="api-note">
-    🔗 Fetching via your Render proxy. Set your Render URL below before scraping.
-  </div>
-
-  <label>Render API URL</label>
-  <div class="input-row">
-    <input type="text" class="main" id="apiUrl" placeholder="https://your-app.onrender.com" />
-  </div>
-
   <label>Blog Root URL</label>
   <div class="input-row">
     <input type="text" class="main" id="urlInput" placeholder="https://example.com/blog/" />
@@ -83,12 +73,13 @@
     <label class="opt"><input type="checkbox" id="fAuthor" checked> Author</label>
     <label class="opt"><input type="checkbox" id="fH1" checked> H1</label>
     <label class="opt"><input type="checkbox" id="fWordCount" checked> Word Count</label>
+    <label class="opt"><input type="checkbox" id="fContent" checked> Blog Content</label>
     <label class="opt"><input type="checkbox" id="fOgImage"> OG Image URL</label>
     <label class="opt"><input type="checkbox" id="fCanonical"> Canonical URL</label>
   </div>
 
   <button id="scrapeBtn" onclick="startScrape()">🔍 Start Crawl</button>
-  <div id="status">Enter your Render URL and a blog URL above, then hit Start.</div>
+  <div id="status">Enter a blog URL above and hit Start.</div>
   <div id="progress-bar-wrap"><div id="progress-bar"></div></div>
   <div id="log"></div>
 </div>
@@ -105,6 +96,8 @@
 </div>
 
 <script>
+  const RENDER_API = "https://blog-scraper-in4x.onrender.com";
+
   let allPosts = [];
   let headers = [];
 
@@ -123,11 +116,9 @@
   }
 
   async function startScrape() {
-    const apiUrl = document.getElementById("apiUrl").value.trim().replace(/\/$/, "");
     const rootUrl = document.getElementById("urlInput").value.trim();
     const maxPages = parseInt(document.getElementById("maxPages").value) || 50;
 
-    if (!apiUrl) { setStatus("Please enter your Render API URL."); return; }
     if (!rootUrl) { setStatus("Please enter a blog URL."); return; }
 
     const fields = {
@@ -137,6 +128,7 @@
       author: document.getElementById("fAuthor").checked,
       h1: document.getElementById("fH1").checked,
       wordCount: document.getElementById("fWordCount").checked,
+      content: document.getElementById("fContent").checked,
       ogImage: document.getElementById("fOgImage").checked,
       canonical: document.getElementById("fCanonical").checked,
     };
@@ -146,14 +138,16 @@
     document.getElementById("results").style.display = "none";
     document.getElementById("log").innerHTML = "";
     setProgress(0);
-    setStatus("Connecting to Render...");
+    setStatus("Connecting to server... (may take ~30s if server is waking up)");
 
     try {
-      const response = await fetch(`${apiUrl}/scrape`, {
+      const response = await fetch(`${RENDER_API}/scrape`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rootUrl, maxPages, fields }),
       });
+
+      if (!response.ok) throw new Error(`Server error: ${response.status} ${response.statusText}`);
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -187,7 +181,7 @@
         }
       }
     } catch (e) {
-      setStatus(`❌ Failed to connect to Render: ${e.message}`);
+      setStatus(`❌ Failed to connect: ${e.message}`);
     }
 
     document.getElementById("scrapeBtn").disabled = false;
