@@ -40,6 +40,22 @@ async function fetchPage(url) {
   return res.data;
 }
 
+// --- Helper: is this URL worth crawling (on the path to a post)? ---
+function isRelevantUrl(url, rootUrl) {
+  const path = url.replace(rootUrl, "").replace(/\/$/, "");
+  const segments = path.split("/").filter(Boolean);
+  // Allow: /          (root blog index)
+  // Allow: /2024      (year index)
+  // Allow: /2024/Jan  (month index)
+  // Allow: /2024/Jan/slug (actual post)
+  // Block anything else (nav, footer, tag, category, external, etc.)
+  if (segments.length === 0) return true;
+  if (segments.length === 1) return /^\d{4}$/.test(segments[0]); // year only
+  if (segments.length === 2) return /^\d{4}$/.test(segments[0]); // year/month
+  if (segments.length === 3) return /^\d{4}$/.test(segments[0]); // year/month/slug
+  return false; // too deep
+}
+
 // --- Helper: extract all same-base links from a page ---
 function extractLinks(html, baseUrl, rootUrl) {
   const $ = cheerio.load(html);
@@ -54,6 +70,8 @@ function extractLinks(html, baseUrl, rootUrl) {
       const clean = href.href;
       if (href.hostname !== base.hostname) return;
       if (!clean.startsWith(rootUrl)) return;
+      if (clean.includes("/categories")) return;
+      if (!isRelevantUrl(clean, rootUrl)) return;
       links.add(clean);
     } catch {}
   });
@@ -63,7 +81,6 @@ function extractLinks(html, baseUrl, rootUrl) {
 
 // --- Helper: does URL match year/month/slug pattern? ---
 function looksLikePost(url) {
-  // Matches: /blog/2024/January/some-post or /blog/2024/01/some-post
   return /\/\d{4}\/[^/]+\/[^/]+\/?$/.test(url);
 }
 
