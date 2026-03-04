@@ -61,18 +61,10 @@ function extractLinks(html, baseUrl, rootUrl) {
   return links;
 }
 
-// --- Helper: does URL look like a post (not an archive/index page)? ---
+// --- Helper: does URL match year/month/slug pattern? ---
 function looksLikePost(url) {
-  const skip = [
-    /\/page\/\d+/,
-    /\/tag\//,
-    /\/category\//,
-    /\/author\//,
-    /\/feed\//,
-    /\?/,
-    /#/,
-  ];
-  return !skip.some((r) => r.test(url));
+  // Matches: /blog/2024/January/some-post or /blog/2024/01/some-post
+  return /\/\d{4}\/[^/]+\/[^/]+\/?$/.test(url);
 }
 
 // --- Helper: extract post data from HTML ---
@@ -188,10 +180,6 @@ app.post("/scrape", async (req, res) => {
   }
 
   res.end();
-});
-
-app.get("/", (req, res) => {
-  res.sendFile(__dirname + "/public/index.html");
 });
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
