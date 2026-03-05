@@ -82,7 +82,8 @@ function looksLikePost(url) {
 // --- Helper: extract post data from HTML ---
 function extractPost(html, url, fields) {
   const $ = cheerio.load(html);
-  const post = { URL: url };
+  const post = {};
+  if (fields.url) post["URL"] = url;
 
   if (fields.title)
     post["Title"] =
