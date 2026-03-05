@@ -137,8 +137,7 @@ function extractPost(html, url, fields) {
   }
 
   if (fields.ogImage)
-    post["OG Image"] =
-      $('meta[property="og:image"]').attr("content") || "";
+    post["OG Image"] = $('meta[property="og:image"]').attr("content") || "";
 
   if (fields.canonical)
     post["Canonical"] = $('link[rel="canonical"]').attr("href") || "";
@@ -148,7 +147,8 @@ function extractPost(html, url, fields) {
 
 // --- Main scrape endpoint ---
 app.post("/scrape", async (req, res) => {
-  const { rootUrl, maxPages = 50, fields = {} } = req.body;
+  const { rootUrl, maxPages, fields = {} } = req.body;
+  const limit = maxPages ? parseInt(maxPages) : Infinity;
 
   if (!rootUrl) return res.status(400).json({ error: "rootUrl is required" });
 
@@ -165,7 +165,7 @@ app.post("/scrape", async (req, res) => {
   let crawled = 0;
 
   try {
-    while (queue.length > 0 && crawled < maxPages) {
+    while (queue.length > 0 && crawled < limit) {
       const current = queue.shift();
       if (visited.has(current)) continue;
       visited.add(current);
